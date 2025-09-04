@@ -12,7 +12,8 @@ use crate::{
     auth::{create_auth_response, hash_password, verify_password},
     models::*,
     reflection::{Reflector, ReflectionConfig},
-    state::ArchetypalState,
+    ritual::{Ritual, RitualDefinition},
+    state::{ArchetypalState, SymbolicState},
 };
 
 #[derive(serde::Serialize)]
@@ -193,77 +194,117 @@ pub async fn execute_ritual(
 ) -> Result<Json<SuccessResponse<TransformationResult>>, (StatusCode, Json<ErrorResponse>)> {
     let execution_start = Instant::now();
 
-    // Get current practitioner state
-    let current_state = get_practitioner_current_state(&app_state.db, practitioner.id).await?;
+    // Fetch the ritual definition from the database
+    let sacred_ritual = sqlx::query_as::<_, SacredRitual>(
+        "SELECT * FROM sacred_rituals WHERE name = $1 AND (is_public = true OR author_id = $2)"
+    )
+    .bind(&request.ritual_name)
+    .bind(practitioner.id)
+    .fetch_optional(&app_state.db)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("Failed to fetch ritual: {}", e),
+            }),
+        )
+    })?;
 
-    // Execute ritual using the engine (simplified for now)
-    let mut post_state = current_state.clone();
+    let ritual_record = sacred_ritual.ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!("Ritual '{}' not found", request.ritual_name),
+            }),
+        )
+    })?;
 
-    // Apply basic ritual transformations based on ritual name
-    match request.ritual_name.as_str() {
-        "shadow_integration" => {
-            let shadow_val = post_state.archetypes.get("Shadow").unwrap_or(&0.0);
-            post_state
-                .archetypes
-                .insert("Shadow".to_string(), shadow_val + 0.2);
-            post_state.symbols.push("◯●◯".to_string());
-        }
-        "archetype_invocation" => {
-            for (_, activation) in post_state.archetypes.iter_mut() {
-                *activation += 0.1;
+    // Get current practitioner state and convert to SymbolicState
+    let current_archetypal_state = get_practitioner_current_state(&app_state.db, practitioner.id).await?;
+    let mut symbolic_state = convert_archetypal_to_symbolic(&current_archetypal_state);
+
+    // Create ritual definition from database record
+    let ritual_definition = RitualDefinition {
+        name: ritual_record.name.clone(),
+        description: ritual_record.description.clone(),
+        intent: ritual_record.intent.clone(),
+        required_archetypes: ritual_record.required_archetypes
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
+        energy_requirements: ritual_record.energy_requirements
+            .as_object()
+            .unwrap_or(&serde_json::Map::new())
+            .iter()
+            .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+            .collect(),
+        wasm_module_path: None, // WASM data is in database, not file path
+        native_handler: Some(ritual_record.name.clone()), // Use name as native handler
+        parameters: request.parameters.clone(),
+    };
+
+    // Create and configure the ritual
+    let mut ritual = Ritual::new(ritual_definition);
+
+    // Load WASM module if available
+    if let Some(wasm_data) = ritual_record.wasm_module_data {
+        match load_wasm_from_bytes(&mut ritual, &wasm_data) {
+            Ok(_) => {
+                tracing::info!("Loaded WASM module for ritual: {}", ritual_record.name);
             }
-            post_state.symbols.push("🔮".to_string());
-        }
-        "energy_attunement" => {
-            for (_, energy) in post_state.energies.iter_mut() {
-                *energy = (*energy + 0.1).min(1.0);
-            }
-            post_state.symbols.push("∿∿∿".to_string());
-        }
-        "void_contemplation" => {
-            let void_val = post_state.energies.get("Void").unwrap_or(&0.0);
-            post_state
-                .energies
-                .insert("Void".to_string(), void_val + 0.3);
-            post_state.symbols.push("○".to_string());
-        }
-        _ => {
-            // Default transformation
-            for (_, activation) in post_state.archetypes.iter_mut() {
-                *activation += 0.05;
+            Err(e) => {
+                tracing::warn!("Failed to load WASM module, using native handler: {}", e);
+                // Continue with native execution
             }
         }
     }
 
-    // Ritual execution is complete
+    // Execute the ritual
+    let ritual_result = ritual.execute(&mut symbolic_state).await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Ritual execution failed: {}", e),
+                }),
+            )
+        })?;
 
+    // Convert symbolic state back to archetypal state
+    let post_state = convert_symbolic_to_archetypal(&symbolic_state);
     let execution_duration = execution_start.elapsed();
 
-    // Calculate transformation intensity
-    let transformation_intensity = calculate_transformation_intensity(&current_state, &post_state);
+    // Calculate transformation intensity based on ritual result
+    let transformation_intensity = ritual_result.resonance_level;
 
     // Store the new state
     let post_state_id = store_archetypal_state(&app_state.db, practitioner.id, &post_state).await?;
 
-    // Create session record
-    let session_id = Uuid::new_v4();
+    // Create session record with actual ritual data
+    let session_id = ritual_result.execution_id;
     sqlx::query(
         r#"
         INSERT INTO ritual_sessions (id, practitioner_id, ritual_id, pre_state_id, post_state_id,
-                                   execution_duration_ms, transformation_intensity)
-        VALUES ($1, $2, 
-                (SELECT id FROM sacred_rituals WHERE name = $3 LIMIT 1),
+                                   execution_duration_ms, transformation_intensity, subjective_experience,
+                                   integration_notes, effectiveness_rating)
+        VALUES ($1, $2, $3, 
                 (SELECT id FROM archetypal_states WHERE practitioner_id = $4 ORDER BY created_at DESC LIMIT 1 OFFSET 1),
-                $5, $6, $7)
+                $5, $6, $7, $8, $9, $10)
         "#,
     )
     .bind(session_id)
     .bind(practitioner.id)
-    .bind(&request.ritual_name)
+    .bind(ritual_record.id)
     .bind(practitioner.id)
     .bind(post_state_id)
-    .bind(execution_duration.as_millis() as i32)
+    .bind(ritual_result.duration_ms as i32)
     .bind(transformation_intensity)
+    .bind(request.intention)
+    .bind(format!("Ritual completed with {} state changes", ritual_result.state_changes.len()))
+    .bind((transformation_intensity * 5.0) as i32) // Convert to 1-5 scale
     .execute(&app_state.db)
     .await
     .map_err(|e| {
@@ -275,17 +316,29 @@ pub async fn execute_ritual(
         )
     })?;
 
-    // Generate suggestions and symbols
-    let emerged_symbols = generate_emerged_symbols(&current_state, &post_state);
-    let integration_required = generate_integration_suggestions(&post_state);
-    let next_rituals_suggested = suggest_next_rituals(&post_state);
+    // Update ritual usage count
+    if let Err(e) = sqlx::query("UPDATE sacred_rituals SET usage_count = usage_count + 1 WHERE id = $1")
+        .bind(ritual_record.id)
+        .execute(&app_state.db)
+        .await
+    {
+        tracing::warn!("Failed to update ritual usage count: {}", e);
+        // Don't fail the request for this
+    }
+
+    // Generate integration suggestions based on ritual results
+    let integration_required = ritual_result.state_changes.iter()
+        .map(|change| format!("{:?}: {}", change.change_type, change.description))
+        .collect();
+
+    let next_rituals_suggested = suggest_next_rituals_from_result(&ritual_result);
 
     let result = TransformationResult {
         session_id,
-        pre_state: current_state,
+        pre_state: current_archetypal_state,
         post_state,
         transformation_intensity,
-        emerged_symbols,
+        emerged_symbols: ritual_result.emergent_symbols,
         integration_required,
         next_rituals_suggested,
         oracle_consultation_recommended: transformation_intensity > 0.7,
@@ -520,7 +573,7 @@ pub async fn request_reflection(
     };
     
     // Get practitioner's current state
-    let current_state = get_practitioner_current_state(&app_state.db, practitioner.id).await.ok();
+    let _current_state = get_practitioner_current_state(&app_state.db, practitioner.id).await.ok();
     
     // Create mock ritual result for AI analysis (in future, this would come from actual ritual execution)
     let ritual_result = if let Some((session, ritual)) = ritual_context {
@@ -773,4 +826,95 @@ fn suggest_next_rituals(state: &crate::state::ArchetypalState) -> Vec<String> {
     }
 
     suggestions
+}
+
+// Helper functions for WASM ritual execution
+
+fn convert_archetypal_to_symbolic(archetypal_state: &ArchetypalState) -> SymbolicState {
+    let mut symbolic_state = SymbolicState::new();
+    
+    // Convert archetypes
+    for (name, &activation) in &archetypal_state.archetypes {
+        let mut archetype = crate::state::Archetype::new(name.clone(), format!("Archetype: {}", name));
+        archetype.activation_level = activation;
+        symbolic_state.add_archetype(archetype);
+    }
+    
+    // Convert energies  
+    for (name, &amplitude) in &archetypal_state.energies {
+        let element = match name.as_str() {
+            "Fire" => crate::state::Element::Fire,
+            "Water" => crate::state::Element::Water,
+            "Earth" => crate::state::Element::Earth,
+            "Air" => crate::state::Element::Air,
+            _ => crate::state::Element::Void,
+        };
+        let mut energy = crate::state::Energy::new(name.clone(), 528.0, element);
+        energy.amplitude = amplitude;
+        symbolic_state.add_energy(energy);
+    }
+    
+    // Add symbols
+    for symbol in &archetypal_state.symbols {
+        symbolic_state.add_unresolved_symbol(symbol.clone());
+    }
+    
+    symbolic_state
+}
+
+fn convert_symbolic_to_archetypal(symbolic_state: &SymbolicState) -> ArchetypalState {
+    let mut archetypal_state = ArchetypalState::new();
+    
+    // Convert archetypes back
+    for archetype in symbolic_state.archetypes.values() {
+        archetypal_state.archetypes.insert(archetype.name.clone(), archetype.activation_level);
+    }
+    
+    // Convert energies back
+    for energy in symbolic_state.energies.values() {
+        archetypal_state.energies.insert(energy.name.clone(), energy.amplitude);
+    }
+    
+    // Convert symbols back
+    archetypal_state.symbols = symbolic_state.unresolved_symbols.clone();
+    
+    archetypal_state
+}
+
+fn load_wasm_from_bytes(ritual: &mut Ritual, wasm_data: &[u8]) -> Result<(), crate::CodexError> {
+    ritual.load_wasm_module_from_bytes(wasm_data)
+}
+
+fn suggest_next_rituals_from_result(ritual_result: &crate::ritual::RitualResult) -> Vec<String> {
+    let mut suggestions = Vec::new();
+    
+    // Suggest based on resonance level
+    if ritual_result.resonance_level < 0.5 {
+        suggestions.push("preparation_ritual".to_string());
+        suggestions.push("energy_attunement".to_string());
+    } else if ritual_result.resonance_level > 0.8 {
+        suggestions.push("integration_ritual".to_string());
+        suggestions.push("void_contemplation".to_string());
+    }
+    
+    // Suggest based on completion status
+    match ritual_result.completion_status {
+        crate::ritual::CompletionStatus::PartialIntegration => {
+            suggestions.push("shadow_integration".to_string());
+        }
+        crate::ritual::CompletionStatus::Complete => {
+            suggestions.push("archetype_invocation".to_string());
+        }
+        _ => {}
+    }
+    
+    // Suggest based on emerged symbols
+    if ritual_result.emergent_symbols.contains(&"🌑".to_string()) {
+        suggestions.push("light_work".to_string());
+    }
+    if ritual_result.emergent_symbols.contains(&"⚡".to_string()) {
+        suggestions.push("energy_channeling".to_string());
+    }
+    
+    suggestions.into_iter().take(3).collect() // Limit to 3 suggestions
 }

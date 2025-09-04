@@ -84,6 +84,15 @@ impl Ritual {
         Ok(())
     }
 
+    pub fn load_wasm_module_from_bytes(&mut self, wasm_data: &[u8]) -> Result<(), CodexError> {
+        let engine = Engine::default();
+        let module = Module::new(&engine, wasm_data)?;
+
+        self.wasm_engine = Some(engine);
+        self.wasm_module = Some(module);
+        Ok(())
+    }
+
     pub async fn execute(&self, state: &mut SymbolicState) -> Result<RitualResult, CodexError> {
         let start_time = std::time::Instant::now();
         let execution_id = Uuid::new_v4();
