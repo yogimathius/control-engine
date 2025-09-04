@@ -47,7 +47,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    // Server configuration
+    let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port: u16 = std::env::var("SERVER_PORT")
+        .unwrap_or_else(|_| "3001".to_string())
+        .parse()
+        .unwrap_or(3001);
+    
+    let addr = SocketAddr::from((host.parse::<std::net::IpAddr>().unwrap_or([127, 0, 0, 1].into()), port));
     println!("🔮 Codex Sacred Server listening on {}", addr);
     println!("✨ May this technology serve the highest good");
 

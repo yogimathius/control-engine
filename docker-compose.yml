@@ -1,0 +1,82 @@
+# 🔮 Codex Control Engine - Development Environment
+# Docker Compose setup for the sacred transformation platform
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: codex-postgres
+    environment:
+      POSTGRES_DB: codex_sacred
+      POSTGRES_USER: codex_user
+      POSTGRES_PASSWORD: sacred_password
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - codex-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codex_user -d codex_sacred"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Rust Backend Server (optional - can be run separately)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: codex-backend
+    environment:
+      DATABASE_URL: postgresql://codex_user:sacred_password@postgres:5432/codex_sacred
+      RUST_LOG: info,codex_control_engine=debug
+      JWT_SECRET: your-256-bit-secret-key-change-in-production
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3000
+    ports:
+      - "3001:3000"  # Map to 3001 to avoid conflict with Next.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - codex-network
+    profiles:
+      - full-stack  # Only start with --profile full-stack
+    restart: unless-stopped
+
+  # Next.js Frontend (optional - can be run separately) 
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: codex-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - codex-network
+    profiles:
+      - full-stack  # Only start with --profile full-stack
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  codex-network:
+    driver: bridge
+
+# Usage:
+# Database only:     docker-compose up postgres
+# Full stack:        docker-compose --profile full-stack up
+# Background:        docker-compose up -d postgres

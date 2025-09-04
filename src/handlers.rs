@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::{
     auth::{create_auth_response, hash_password, verify_password},
     models::*,
+    reflection::{Reflector, ReflectionConfig},
     state::ArchetypalState,
 };
 
@@ -298,7 +299,11 @@ pub async fn get_ritual_catalog(
     State(app_state): State<AppState>,
 ) -> Result<Json<SuccessResponse<Vec<SacredRitual>>>, (StatusCode, Json<ErrorResponse>)> {
     let rituals = sqlx::query_as::<_, SacredRitual>(
-        "SELECT * FROM sacred_rituals WHERE is_public = true ORDER BY usage_count DESC, created_at DESC"
+        "SELECT id, name, description, intent, tradition, difficulty_level, required_archetypes, 
+         energy_requirements, wasm_module_data, wasm_module_hash, module_language, author_id,
+         usage_count, effectiveness_rating::double precision as effectiveness_rating, 
+         rating_count, is_public, tags, created_at, updated_at 
+         FROM sacred_rituals WHERE is_public = true ORDER BY usage_count DESC, created_at DESC"
     )
     .fetch_all(&app_state.db)
     .await
@@ -458,36 +463,164 @@ pub async fn get_state_history(
 }
 
 pub async fn request_reflection(
-    State(_app_state): State<AppState>,
-    Extension(_practitioner): Extension<Practitioner>,
+    State(app_state): State<AppState>,
+    Extension(practitioner): Extension<Practitioner>,
     Json(request): Json<ReflectionRequest>,
 ) -> Result<Json<SuccessResponse<OracleInsight>>, (StatusCode, Json<ErrorResponse>)> {
-    // For now, return a mock insight
-    // TODO: Implement real AI integration
-    let insight_id = Uuid::new_v4();
-    let insight = OracleInsight {
-        id: insight_id,
-        session_id: request.session_id,
-        insight_type: "reflection".to_string(),
-        archetypal_analysis: json!({
-            "summary": "Sacred transformation detected",
-            "dominant_archetypes": ["Sage", "Creator"],
-            "integration_level": 0.75
-        }),
-        integration_suggestions: json!({
-            "practices": ["morning meditation", "shadow journaling"],
-            "next_phase": "deepening work"
-        }),
-        symbolic_emergence: json!({
-            "symbols": ["🔮", "∞", "⚡"],
-            "meanings": ["divine connection", "infinite potential", "energetic activation"]
-        }),
-        oracle_model: "mock_oracle".to_string(),
-        confidence_score: 0.8,
-        created_at: chrono::Utc::now(),
+    // Create AI reflector with configuration
+    let reflection_config = ReflectionConfig::default();
+    let reflector = Reflector::new(reflection_config);
+    
+    // If session_id is provided, fetch ritual session for context
+    let ritual_context = if let Some(session_id) = request.session_id {
+        // Get ritual session from database
+        match sqlx::query_as::<_, RitualSessionRecord>(
+            "SELECT * FROM ritual_sessions WHERE id = $1 AND practitioner_id = $2"
+        )
+        .bind(session_id)
+        .bind(practitioner.id)
+        .fetch_optional(&app_state.db)
+        .await
+        {
+            Ok(Some(session)) => {
+                // Get the ritual details
+                let ritual = sqlx::query_as::<_, SacredRitual>(
+                    "SELECT * FROM sacred_rituals WHERE id = $1"
+                )
+                .bind(session.ritual_id)
+                .fetch_optional(&app_state.db)
+                .await
+                .map_err(|e| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse {
+                            error: format!("Failed to fetch ritual: {}", e),
+                        }),
+                    )
+                })?;
+                
+                if let Some(ritual) = ritual {
+                    Some((session, ritual))
+                } else {
+                    None
+                }
+            },
+            Ok(None) => None,
+            Err(e) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to fetch ritual session: {}", e),
+                    }),
+                ));
+            }
+        }
+    } else {
+        None
     };
-
-    Ok(Json(SuccessResponse::new(insight)))
+    
+    // Get practitioner's current state
+    let current_state = get_practitioner_current_state(&app_state.db, practitioner.id).await.ok();
+    
+    // Create mock ritual result for AI analysis (in future, this would come from actual ritual execution)
+    let ritual_result = if let Some((session, ritual)) = ritual_context {
+        crate::ritual::RitualResult {
+            ritual_name: ritual.name.clone(),
+            execution_id: session.id,
+            timestamp: session.created_at,
+            duration_ms: session.execution_duration_ms.unwrap_or(0) as u64,
+            symbolic_outputs: std::collections::HashMap::new(),
+            state_changes: vec![],
+            emergent_symbols: vec!["🔮".to_string(), "∞".to_string(), "⚡".to_string()],
+            completion_status: crate::ritual::CompletionStatus::Complete,
+            resonance_level: session.transformation_intensity.unwrap_or(0.5),
+        }
+    } else {
+        // Create a generic reflection request
+        crate::ritual::RitualResult {
+            ritual_name: "general_reflection".to_string(),
+            execution_id: Uuid::new_v4(),
+            timestamp: chrono::Utc::now(),
+            duration_ms: 0,
+            symbolic_outputs: std::collections::HashMap::new(),
+            state_changes: vec![],
+            emergent_symbols: vec!["🔮".to_string(), "∞".to_string(), "⚡".to_string()],
+            completion_status: crate::ritual::CompletionStatus::Complete,
+            resonance_level: 0.7,
+        }
+    };
+    
+    // Create a SymbolicState for reflection analysis 
+    // In the future, this would be converted from ArchetypalState or retrieved directly
+    let symbolic_state = crate::state::SymbolicState::new();
+    
+    // Get AI reflection
+    match reflector.reflect_on_ritual(&ritual_result, &symbolic_state).await {
+        Ok(reflection) => {
+            // Convert ReflectionResult to OracleInsight and store in database
+            let insight_id = Uuid::new_v4();
+            
+            let oracle_insight = OracleInsight {
+                id: insight_id,
+                session_id: request.session_id,
+                insight_type: "ai_reflection".to_string(),
+                archetypal_analysis: json!({
+                    "interpretation": reflection.archetypal_interpretation,
+                    "symbolic_meaning": reflection.symbolic_meaning,
+                    "resonance_level": ritual_result.resonance_level
+                }),
+                integration_suggestions: json!({
+                    "guidance": reflection.integration_guidance,
+                    "insights": reflection.emergent_insights,
+                    "next_steps": reflection.next_steps
+                }),
+                symbolic_emergence: json!({
+                    "symbols": ritual_result.emergent_symbols,
+                    "resonance_analysis": reflection.resonance_analysis
+                }),
+                oracle_model: std::env::var("DEFAULT_AI_MODEL").unwrap_or("anthropic/claude-3-haiku".to_string()),
+                confidence_score: 0.85,
+                created_at: chrono::Utc::now(),
+            };
+            
+            // Store insight in database
+            sqlx::query(
+                r#"INSERT INTO oracle_insights 
+                   (id, session_id, insight_type, archetypal_analysis, integration_suggestions, 
+                    symbolic_emergence, oracle_model, confidence_score, created_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#
+            )
+            .bind(oracle_insight.id)
+            .bind(oracle_insight.session_id)
+            .bind(&oracle_insight.insight_type)
+            .bind(&oracle_insight.archetypal_analysis)
+            .bind(&oracle_insight.integration_suggestions)
+            .bind(&oracle_insight.symbolic_emergence)
+            .bind(&oracle_insight.oracle_model)
+            .bind(oracle_insight.confidence_score)
+            .bind(oracle_insight.created_at)
+            .execute(&app_state.db)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: format!("Failed to store oracle insight: {}", e),
+                    }),
+                )
+            })?;
+            
+            Ok(Json(SuccessResponse::new(oracle_insight)))
+        }
+        Err(e) => {
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("AI reflection failed: {}", e),
+                }),
+            ))
+        }
+    }
 }
 
 // Helper functions

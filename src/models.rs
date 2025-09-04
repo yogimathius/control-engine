@@ -48,8 +48,11 @@ pub struct SacredRitual {
     pub author_id: Option<Uuid>,
     pub usage_count: i32,
     pub effectiveness_rating: f64,
+    pub rating_count: i32,
     pub is_public: bool,
+    pub tags: serde_json::Value,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
