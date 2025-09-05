@@ -6,7 +6,7 @@ use axum::{
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::CorsLayer;
 
-use codex_control_engine::{handlers, CodexEngine};
+use codex_control_engine::{auth, handlers, CodexEngine};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,15 +35,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/health", get(health_check))
         .route("/api/users/register", post(handlers::register_user))
         .route("/api/users/login", post(handlers::login_user))
-        .route("/api/users/profile", get(handlers::get_profile))
-        .route("/api/rituals/execute", post(handlers::execute_ritual))
+        .route("/api/users/profile", get(handlers::get_profile)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
+        .route("/api/rituals/execute", post(handlers::execute_ritual)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
         .route("/api/rituals/catalog", get(handlers::get_ritual_catalog))
-        .route("/api/rituals/upload", post(handlers::upload_ritual))
+        .route("/api/rituals/upload", post(handlers::upload_ritual)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
         .route("/api/rituals/:id", get(handlers::get_ritual_details))
-        .route("/api/state/current", get(handlers::get_current_state))
-        .route("/api/state/transform", post(handlers::transform_state))
-        .route("/api/state/history", get(handlers::get_state_history))
-        .route("/api/state/reflection", post(handlers::request_reflection))
+        .route("/api/state/current", get(handlers::get_current_state)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
+        .route("/api/state/transform", post(handlers::transform_state)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
+        .route("/api/state/history", get(handlers::get_state_history)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
+        .route("/api/state/reflection", post(handlers::request_reflection)
+            .route_layer(axum::middleware::from_fn_with_state(app_state.clone(), auth::auth_middleware)))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 

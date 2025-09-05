@@ -354,7 +354,7 @@ pub async fn get_ritual_catalog(
     let rituals = sqlx::query_as::<_, SacredRitual>(
         "SELECT id, name, description, intent, tradition, difficulty_level, required_archetypes, 
          energy_requirements, wasm_module_data, wasm_module_hash, module_language, author_id,
-         usage_count, effectiveness_rating::double precision as effectiveness_rating, 
+         usage_count, effectiveness_rating, 
          rating_count, is_public, tags, created_at, updated_at 
          FROM sacred_rituals WHERE is_public = true ORDER BY usage_count DESC, created_at DESC"
     )
