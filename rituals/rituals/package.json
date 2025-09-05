@@ -1,0 +1,15 @@
+{
+  "name": "codex-rituals",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "codex_rituals_bg.wasm",
+    "codex_rituals.js",
+    "codex_rituals.d.ts"
+  ],
+  "main": "codex_rituals.js",
+  "types": "codex_rituals.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
