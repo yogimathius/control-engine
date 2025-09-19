@@ -59,6 +59,8 @@ tower = { version = "0.5", features = ["util", "timeout", "limit"] }
 # Logging and tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Random number generation
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3.8" 
