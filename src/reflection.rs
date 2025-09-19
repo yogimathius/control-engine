@@ -80,6 +80,176 @@ impl Reflector {
         Self::new(ReflectionConfig::default())
     }
 
+    // Enhanced reflection methods for better mock responses
+    fn generate_archetypal_interpretation(&self, ritual_result: &RitualResult, state: &SymbolicState) -> String {
+        match ritual_result.ritual_name.as_str() {
+            "shadow_integration" => {
+                format!("The shadow integration ritual has activated deep archetypal currents within your psyche. \
+                With resonance level {:.2}, you've successfully begun the sacred work of bringing unconscious \
+                shadow material into conscious awareness. The {} archetype(s) present in your symbolic state \
+                indicate readiness for this profound inner work. This is not mere psychological exercise, but \
+                alchemical transformation of the soul.", 
+                ritual_result.resonance_level, 
+                state.archetypes.len())
+            },
+            "energy_attunement" => {
+                format!("The elemental forces within you have been harmonized through this sacred attunement. \
+                Your resonance of {:.2} reflects the cosmic order seeking balance within your energetic being. \
+                The {} energy currents now flow in greater harmony, creating coherence between your inner \
+                elements and the archetypal forces they serve.",
+                ritual_result.resonance_level,
+                state.energies.len())
+            },
+            "void_contemplation" => {
+                format!("You have touched the primordial emptiness, the fertile void from which all creation springs. \
+                This resonance of {:.2} indicates deep contact with the transcendent realm beyond form. \
+                The dissolution of ego boundaries allows pure awareness to emerge, connecting you with \
+                the infinite source of all archetypal energy.",
+                ritual_result.resonance_level)
+            },
+            _ => {
+                format!("A significant archetypal transformation has occurred through the {} ritual. \
+                Your resonance level of {:.2} indicates the depth of inner change achieved. \
+                The unconscious has been stirred, and new patterns of meaning are emerging.",
+                ritual_result.ritual_name,
+                ritual_result.resonance_level)
+            }
+        }
+    }
+
+    fn generate_symbolic_meaning(&self, symbols: &[String]) -> String {
+        if symbols.is_empty() {
+            return "No new symbols emerged, indicating a period of inner stillness and preparation.".to_string();
+        }
+
+        let mut meanings = Vec::new();
+        
+        for symbol in symbols {
+            match symbol.as_str() {
+                "◯●◯" => meanings.push("The trinity of shadow integration - conscious, unconscious, and the unified whole"),
+                "🌑" => meanings.push("New moon consciousness - the dark fertile void of potential"),
+                "⚡" => meanings.push("Energetic activation - the lightning flash of illumination"),
+                "∿∿∿" => meanings.push("Harmonic waves - the restoration of natural energetic flow"),
+                "🔮" => meanings.push("Archetypal awakening - the activation of primordial wisdom"),
+                "○" => meanings.push("The sacred circle - wholeness, completion, and eternal return"),
+                "∞" => meanings.push("Infinite consciousness - transcendence of linear limitations"),
+                _ => meanings.push("A unique archetypal emergence requiring personal contemplation"),
+            }
+        }
+
+        format!("The emergent symbols carry profound meaning: {}. These symbols serve as talismans of transformation, \
+        anchoring the ritual's effects in your psyche and providing focal points for continued integration work.",
+        meanings.join("; "))
+    }
+
+    fn generate_integration_guidance(&self, ritual_result: &RitualResult) -> String {
+        let base_guidance = match ritual_result.ritual_name.as_str() {
+            "shadow_integration" => "Honor the shadow aspects that have surfaced. Create a sacred space for dialogue with these parts of yourself through active imagination or journaling. Practice shadow work gradually - integrate slowly to avoid overwhelming the conscious mind.",
+            "energy_attunement" => "Maintain the energetic harmony achieved through consistent practice. Spend time in nature to ground the attunement. Notice how the balanced energies affect your daily interactions and creative expression.",
+            "void_contemplation" => "Carry the spaciousness of void consciousness into daily life. Practice moments of emptiness meditation. Allow the ego to rest in the vast awareness you've touched.",
+            _ => "Create space for the transformation to settle. Trust the process and allow the changes to integrate naturally over time.",
+        };
+
+        let resonance_guidance = if ritual_result.resonance_level > 0.8 {
+            " Your high resonance indicates profound change - be gentle with yourself as these new patterns establish."
+        } else if ritual_result.resonance_level > 0.6 {
+            " Your good resonance suggests solid progress - continue with regular practice to deepen the integration."
+        } else {
+            " Your resonance indicates gentle progress - be patient with the process and trust in gradual transformation."
+        };
+
+        format!("{}{}", base_guidance, resonance_guidance)
+    }
+
+    fn generate_emergent_insights(&self, ritual_result: &RitualResult, _state: &SymbolicState) -> Vec<String> {
+        let mut insights = Vec::new();
+
+        match ritual_result.ritual_name.as_str() {
+            "shadow_integration" => {
+                insights.push("What you resist in others often reflects unintegrated aspects of yourself".to_string());
+                insights.push("Shadow work is not about eliminating darkness, but making it conscious".to_string());
+                insights.push("Integration brings wholeness, not perfection".to_string());
+            },
+            "energy_attunement" => {
+                insights.push("Inner harmony reflects in outer circumstances".to_string());
+                insights.push("Balanced energy flows naturally without forcing".to_string());
+                insights.push("Elemental awareness connects you to natural wisdom".to_string());
+            },
+            "void_contemplation" => {
+                insights.push("Emptiness is not void of content, but pregnant with infinite possibility".to_string());
+                insights.push("The ego dissolves to reveal the eternal Self".to_string());
+                insights.push("In stillness, the deepest truths emerge".to_string());
+            },
+            _ => {
+                insights.push("Transformation happens in spirals, not straight lines".to_string());
+                insights.push("Trust the wisdom of your unconscious processes".to_string());
+            }
+        }
+
+        if ritual_result.resonance_level > 0.9 {
+            insights.push("Exceptional resonance indicates readiness for advanced practices".to_string());
+        }
+
+        insights
+    }
+
+    fn suggest_next_steps(&self, ritual_result: &RitualResult) -> Vec<String> {
+        let mut steps = Vec::new();
+
+        match ritual_result.ritual_name.as_str() {
+            "shadow_integration" => {
+                steps.push("Continue shadow work through dream analysis".to_string());
+                steps.push("Explore creative expression of integrated aspects".to_string());
+                steps.push("Consider archetype invocation to strengthen supportive forces".to_string());
+            },
+            "energy_attunement" => {
+                steps.push("Practice daily elemental meditations".to_string());
+                steps.push("Explore void contemplation to deepen energetic awareness".to_string());
+                steps.push("Work with natural elements directly (earth, fire, water, air)".to_string());
+            },
+            "void_contemplation" => {
+                steps.push("Integrate void awareness into daily activities".to_string());
+                steps.push("Explore archetypal invocation from emptiness".to_string());
+                steps.push("Practice action from non-action (wu wei)".to_string());
+            },
+            _ => {
+                steps.push("Allow integration time through rest and reflection".to_string());
+                steps.push("Explore complementary practices".to_string());
+            }
+        }
+
+        if ritual_result.resonance_level < 0.5 {
+            steps.push("Focus on foundational practices before advancing".to_string());
+        }
+
+        steps
+    }
+
+    fn analyze_resonance(&self, ritual_result: &RitualResult) -> String {
+        let level = ritual_result.resonance_level;
+        
+        let quality = if level > 0.9 {
+            "Exceptional - profound transformation achieved"
+        } else if level > 0.8 {
+            "Very High - significant archetypal activation"
+        } else if level > 0.7 {
+            "High - strong energetic coherence established"
+        } else if level > 0.6 {
+            "Good - meaningful progress in integration"
+        } else if level > 0.5 {
+            "Moderate - gentle transformation in progress"
+        } else if level > 0.3 {
+            "Developing - early stages of change"
+        } else {
+            "Initial - foundation being established"
+        };
+
+        format!("Resonance Level: {:.2} - {}. This indicates the degree of coherence between your \
+        conscious intent and the archetypal forces activated. The {} state changes during this ritual \
+        demonstrate active transformation occurring within your symbolic matrix.",
+        level, quality, ritual_result.state_changes.len())
+    }
+
     pub async fn reflect_on_ritual(
         &self,
         ritual_result: &RitualResult,
@@ -87,16 +257,17 @@ impl Reflector {
     ) -> Result<ReflectionResult, CodexError> {
         // Check if API key is available, fall back to mock if not
         if self.config.api_key.is_empty() {
-            return self.create_mock_reflection(ritual_result, state);
+            tracing::warn!("No API key provided, using enhanced mock reflection");
+            return self.create_enhanced_mock_reflection(ritual_result, state);
         }
 
         let context = self.build_reflection_context(ritual_result, state);
         
         match self.query_ai_oracle(&context, ritual_result).await {
             Ok(ai_response) => self.parse_ai_reflection(ai_response, ritual_result),
-            Err(_) => {
-                // Fallback to mock reflection if AI query fails
-                self.create_mock_reflection(ritual_result, state)
+            Err(e) => {
+                tracing::warn!("AI reflection failed, using enhanced fallback: {}", e);
+                self.create_enhanced_mock_reflection(ritual_result, state)
             }
         }
     }
@@ -260,6 +431,29 @@ Please provide your archetypal interpretation and guidance for this sacred trans
         }
 
         Ok(reflection)
+    }
+
+    fn create_enhanced_mock_reflection(
+        &self,
+        ritual_result: &RitualResult,
+        state: &SymbolicState,
+    ) -> Result<ReflectionResult, CodexError> {
+        // Enhanced reflection based on actual ritual data and state
+        let interpretation = self.generate_archetypal_interpretation(ritual_result, state);
+        let meaning = self.generate_symbolic_meaning(&ritual_result.emergent_symbols);
+        let guidance = self.generate_integration_guidance(ritual_result);
+        let insights = self.generate_emergent_insights(ritual_result, state);
+
+        Ok(ReflectionResult {
+            ritual_name: ritual_result.ritual_name.clone(),
+            timestamp: chrono::Utc::now(),
+            archetypal_interpretation: interpretation,
+            symbolic_meaning: meaning,
+            integration_guidance: guidance,
+            emergent_insights: insights,
+            next_steps: self.suggest_next_steps(ritual_result),
+            resonance_analysis: self.analyze_resonance(ritual_result),
+        })
     }
 
     fn create_mock_reflection(
