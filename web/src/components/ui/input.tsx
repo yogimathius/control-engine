@@ -2,11 +2,12 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  // Extend base props if needed
+  // Sacred UI styling variant (optional for future customization)
+  variant?: 'default' | 'sacred' | 'mystic';
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, variant = 'default', ...props }, ref) => {
     return (
       <input
         type={type}

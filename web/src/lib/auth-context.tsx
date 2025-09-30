@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const profile = await authAPI.getProfile();
           setUser(profile);
-        } catch (error) {
+        } catch (_error) {
           // Token is invalid, remove it
           localStorage.removeItem('sacred_token');
         }
@@ -41,10 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await authAPI.login(email, password);
+      await authAPI.login(email, password);
       const profile = await authAPI.getProfile();
       setUser(profile);
-    } catch (error) {
+    } catch (_error) {
       throw new Error('Login failed');
     }
   };
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authAPI.register(email, password, spiritualName);
       // Auto-login after registration
       await login(email, password);
-    } catch (error) {
+    } catch (_error) {
       throw new Error('Registration failed');
     }
   };
