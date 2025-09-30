@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { stateAPI, Practitioner, ArchetypalState } from '@/lib/api';
+import { stateAPI, Practitioner } from '@/lib/api';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { 
   Circle, 
@@ -19,7 +19,20 @@ interface StateVisualizationProps {
   user: Practitioner;
 }
 
-const energyIcons: Record<string, any> = {
+interface Integration {
+  id: string;
+  description: string;
+  status: string;
+}
+
+interface Symbol {
+  id: string;
+  value: string;
+  meaning?: string;
+  status: string;
+}
+
+const energyIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Fire: Flame,
   Water: Droplet,
   Earth: Mountain,
@@ -45,7 +58,7 @@ const archetypeDescriptions: Record<string, string> = {
   Mystic: 'The seeker of transcendent truth and spiritual unity',
 };
 
-export function StateVisualization({ user }: StateVisualizationProps) {
+export function StateVisualization({ user: _user }: StateVisualizationProps) {
   // Fetch current state
   const { data: currentState, isLoading: currentLoading } = useQuery({
     queryKey: ['state', 'current'],
@@ -221,7 +234,7 @@ export function StateVisualization({ user }: StateVisualizationProps) {
             Completed Integrations
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {currentState.integrations.map((integration: any, index) => (
+            {currentState.integrations.map((integration: Integration, index) => (
               <div
                 key={index}
                 className="p-4 bg-green-900/20 border border-green-700/50 rounded-lg"
@@ -250,7 +263,7 @@ export function StateVisualization({ user }: StateVisualizationProps) {
             Emergent Symbols
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {currentState.symbols.map((symbol: any, index) => (
+            {currentState.symbols.map((symbol: Symbol, index) => (
               <div
                 key={index}
                 className="p-4 bg-purple-900/20 border border-purple-700/50 rounded-lg text-center"

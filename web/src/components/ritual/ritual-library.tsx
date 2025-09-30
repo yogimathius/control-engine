@@ -10,8 +10,6 @@ import {
   Clock, 
   Target, 
   Users, 
-  Search,
-  Filter,
   Circle,
   Sparkles,
   Flame,
@@ -25,7 +23,7 @@ interface RitualLibraryProps {
   user: Practitioner;
 }
 
-const energyIcons: Record<string, any> = {
+const energyIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Fire: Flame,
   Water: Droplet,
   Earth: Mountain,
@@ -49,7 +47,7 @@ const traditionColors = {
   universal: 'border-gray-500/30 bg-gray-900/10',
 };
 
-export function RitualLibrary({ user }: RitualLibraryProps) {
+export function RitualLibrary({ user: _user }: RitualLibraryProps) {
   // Fetch ritual catalog
   const { data: rituals = [], isLoading: ritualsLoading } = useQuery({
     queryKey: ['rituals', 'catalog'],
@@ -187,7 +185,7 @@ export function RitualLibrary({ user }: RitualLibraryProps) {
                 <span>Sacred Intent</span>
               </h4>
               <p className="text-xs text-slate-400 italic">
-                "{ritual.intent}"
+                &ldquo;{ritual.intent}&rdquo;
               </p>
             </div>
 

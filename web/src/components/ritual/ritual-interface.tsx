@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ritualsAPI, stateAPI, SacredRitual, Practitioner, RitualSession } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ interface RitualInterfaceProps {
   user: Practitioner;
 }
 
-const traditionColors = {
+const _traditionColors = {
   jungian: 'from-blue-500 to-purple-600',
   shamanic: 'from-green-500 to-emerald-600',
   hermetic: 'from-yellow-500 to-orange-600',
@@ -49,7 +49,7 @@ const energyIcons: Record<string, React.ElementType> = {
   Shadow: Circle,
 };
 
-export function RitualInterface({ user }: RitualInterfaceProps) {
+export function RitualInterface({ user: _user }: RitualInterfaceProps) {
   const [selectedRitual, setSelectedRitual] = useState<SacredRitual | null>(null);
   const [intention, setIntention] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
@@ -80,7 +80,7 @@ export function RitualInterface({ user }: RitualInterfaceProps) {
       setIsExecuting(false);
       setIntention('');
     },
-    onError: (error) => {
+    onError: (_error) => {
       toast.error('Ritual execution failed. Please try again.');
       setIsExecuting(false);
     },
@@ -298,7 +298,7 @@ export function RitualInterface({ user }: RitualInterfaceProps) {
                   className="mb-2"
                 />
                 <p className="text-xs text-slate-500">
-                  Leave blank to use the ritual's default intention
+                  Leave blank to use the ritual&apos;s default intention
                 </p>
               </div>
 
