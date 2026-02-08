@@ -23,6 +23,10 @@ A symbolic runtime for executing rituals and evolving inner archetypes
 - Estimated operational coverage: **39%**
 - Confidence level: **medium**
 
+## Public Repository Notes
+- Configure local runtime values by copying `.env.example` (and `web/.env.local.example` for web components) into untracked env files.
+- Keep API keys and private credentials out of version control.
+
 ## Future Work
 - Document and stabilize the external interface (CLI, API, or protocol) with explicit examples
 - Run the detected tests in CI and track flakiness, duration, and coverage
